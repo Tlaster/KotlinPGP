@@ -52,7 +52,8 @@ configure<PublishExtension> {
     userOrg = "tlaster"
     repoName = "KotlinPGP"
     groupId = "moe.tlaster"
-    artifactId = "KotlinPGP"
+    artifactId = "kotlinpgp"
+    uploadName = "KotlinPGP"
     publishVersion = version.toString()
     desc = "Kotlin PGP"
     website = "https://github.com/Tlaster/KotlinPGP"
