@@ -12,9 +12,7 @@ import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.*
-import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider
-import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder
-import org.bouncycastle.openpgp.operator.jcajce.JcePGPDataEncryptorBuilder
+import org.bouncycastle.openpgp.operator.jcajce.*
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -23,10 +21,6 @@ import java.math.BigInteger
 import java.security.SecureRandom
 import java.security.Security
 import java.util.*
-import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider
-import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder
-import org.bouncycastle.openpgp.operator.PBESecretKeyDecryptor
-import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator
 
 
 object KotlinPGP {
@@ -97,10 +91,10 @@ object KotlinPGP {
                     init(it)
                 }
             }
-        val masterKey = BcPGPKeyPair(PGPPublicKey.RSA_SIGN, keyPairGenerator.generateKeyPair(), Date())
-        val keyPair = BcPGPKeyPair(PGPPublicKey.RSA_ENCRYPT, keyPairGenerator.generateKeyPair(), Date())
+        val masterKey = BcPGPKeyPair(PGPPublicKey.RSA_GENERAL, keyPairGenerator.generateKeyPair(), Date())
+        val keyPair = BcPGPKeyPair(PGPPublicKey.RSA_GENERAL, keyPairGenerator.generateKeyPair(), Date())
         val generator = PGPSignatureSubpacketGenerator().apply {
-            setKeyFlags(false, KeyFlags.SIGN_DATA or KeyFlags.CERTIFY_OTHER or KeyFlags.SHARED)
+            setKeyFlags(false, KeyFlags.SIGN_DATA or KeyFlags.CERTIFY_OTHER)
             setPreferredSymmetricAlgorithms(
                 false,
                 intArrayOf(
@@ -124,13 +118,16 @@ object KotlinPGP {
         val pgpSignatureSubpacketGenerator = PGPSignatureSubpacketGenerator().apply {
             setKeyFlags(false, KeyFlags.ENCRYPT_COMMS or KeyFlags.ENCRYPT_STORAGE)
         }
-        val sha1Calc = BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA1)
-        val encryptor = BcPGPDigestCalculatorProvider().get(HashAlgorithmTags.SHA256).let {
-            BcPBESecretKeyEncryptorBuilder(
+        val sha1Calc = JcaPGPDigestCalculatorProviderBuilder()
+            .build().get(HashAlgorithmTags.SHA1)
+        val encryptor = JcaPGPDigestCalculatorProviderBuilder().build().get(HashAlgorithmTags.SHA256).let {
+            JcePBESecretKeyEncryptorBuilder(
                 PGPEncryptedData.AES_256,
                 it,
-                0xc0
-            ).build(generateKeyPairParameter.password.toCharArray())
+                0x90
+            )
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(generateKeyPairParameter.password.toCharArray())
         }
         return PGPKeyRingGenerator(
             PGPSignature.POSITIVE_CERTIFICATION, masterKey,
