@@ -47,9 +47,10 @@ val PGPPublicKey.email
 
 fun PGPKeyRing.extractPublicKeyRing(): PGPPublicKeyRing {
     val it = publicKeys
-    val stream = ByteArrayOutputStream(2048)
-    while (it.hasNext()) {
-        stream.write(it.next().encoded)
+    return ByteArrayOutputStream().use { stream ->
+        while (it.hasNext()) {
+            stream.write(it.next().encoded)
+        }
+         PGPPublicKeyRing(stream.toByteArray(), JcaKeyFingerprintCalculator())
     }
-    return PGPPublicKeyRing(stream.toByteArray(), JcaKeyFingerprintCalculator())
 }

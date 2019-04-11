@@ -15,7 +15,6 @@ import moe.tlaster.kotlinpgp.data.GenerateKeyPairParameter
 import moe.tlaster.kotlinpgp.data.PGPKeyPairData
 import moe.tlaster.kotlinpgp.data.VerifyStatus
 import moe.tlaster.kotlinpgp.utils.OpenPGPUtils
-import moe.tlaster.kotlinpgp.utils.UserIdUtils
 import org.bouncycastle.openpgp.PGPException
 
 
@@ -90,10 +89,8 @@ class KotlinPGPTest : FreeSpec({
                 publicKeyRing.shouldNotBeNull()
                 Iterators.size(publicKeyRing.publicKeys) shouldBe 2
                 Iterators.size(publicKeyRing.publicKey.userIDs) shouldBe 1
-                val id = Iterators.get(publicKeyRing.publicKey.userIDs, 0)
-                val userId = UserIdUtils.splitUserId(id)
-                userId.name shouldBe keyName
-                userId.email shouldBe keyEmail
+                publicKeyRing.publicKey.name shouldBe keyName
+                publicKeyRing.publicKey.email shouldBe keyEmail
                 val publicKeyRingString = publicKeyRing.exportToString()
                 publicKeyRingString shouldBe keypair.publicKey
             }
@@ -108,6 +105,13 @@ class KotlinPGPTest : FreeSpec({
                 shouldThrowExactly<PGPException> {
                     KotlinPGP.getSecretKeyRingFromString(keypair.secretKey, "Wrong password!")
                 }
+            }
+            "should extract public key ring" {
+                val privateKeyRing = KotlinPGP.getSecretKeyRingFromString(keypair.secretKey, keyPassword)
+                val publicKeyRing = privateKeyRing.extractPublicKeyRing()
+                publicKeyRing.shouldNotBeNull()
+                val publicKeyRingString = publicKeyRing.exportToString()
+                publicKeyRingString shouldBe keypair.publicKey
             }
         }
         "encrypt" - {
