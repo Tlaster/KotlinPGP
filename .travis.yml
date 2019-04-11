@@ -1,12 +1,9 @@
 language: java 
-
 install: true
-
 before_install:
   - chmod +x ./gradlew
-
-script: ./gradlew clean build
-
+script:
+    - ./gradlew clean build
 deploy:
   provider: script
   script: ./gradlew clean build bintrayUpload -PbintrayUser=BINTRAY_USERNAME -PbintrayKey=BINTRAY_KEY
