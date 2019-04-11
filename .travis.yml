@@ -6,7 +6,7 @@ script:
     - ./gradlew clean build
 deploy:
   provider: script
-  script: chmod +x ./gradlew && ./gradlew bintrayUpload -PbintrayUser=BINTRAY_USERNAME -PbintrayKey=BINTRAY_KEY
+  script: chmod +x ./gradlew && ./gradlew bintrayUpload -PbintrayUser=BINTRAY_USERNAME -PbintrayKey=BINTRAY_KEY -PdryRun=false
   skip_cleanup: true # to upload artifacts created during the build
   dry-run: false
   on:
