@@ -48,6 +48,10 @@ val test by tasks.getting(Test::class) {
     useJUnitPlatform { }
 }
 
+
+val user = System.getenv("BINTRAY_USERNAME")
+val key = System.getenv("BINTRAY_KEY")
+
 configure<PublishExtension> {
     userOrg = "tlaster"
     repoName = "KotlinPGP"
@@ -56,5 +60,8 @@ configure<PublishExtension> {
     uploadName = "KotlinPGP"
     publishVersion = version.toString()
     desc = "Kotlin PGP"
+    bintrayUser = user
+    bintrayKey = key
     website = "https://github.com/Tlaster/KotlinPGP"
+    dryRun = false
 }
