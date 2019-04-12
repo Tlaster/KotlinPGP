@@ -4,7 +4,7 @@
 Kotlin library for OpenPGP using bouncycastle
 # Getting Start 
 ```
-implementation 'moe.tlaster:kotlinpgp:<lateset-version>'
+implementation 'moe.tlaster:kotlinpgp:<latest-version>'
 ```
 KotlinPGP also support Android platform
 
