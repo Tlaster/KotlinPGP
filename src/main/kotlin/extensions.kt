@@ -18,18 +18,17 @@ fun PGPKeyRing.exportToString(): String {
 }
 
 val String.isPGPMessage
-    get() =
-        (this.startsWith("-----BEGIN PGP MESSAGE-----")
-                && this.endsWith("-----END PGP MESSAGE-----"))
-                || (this.startsWith("-----BEGIN PGP SIGNED MESSAGE-----")
-                && this.endsWith("-----END PGP SIGNATURE-----"))
+    get() = (this.trim().startsWith("-----BEGIN PGP MESSAGE-----")
+            && this.trim().endsWith("-----END PGP MESSAGE-----"))
+            || (this.trim().startsWith("-----BEGIN PGP SIGNED MESSAGE-----")
+            && this.trim().endsWith("-----END PGP SIGNATURE-----"))
 
 
 val String.isPGPPublicKey
-    get() = this.startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----") && this.endsWith("-----END PGP PUBLIC KEY BLOCK-----")
+    get() = this.trim().startsWith("-----BEGIN PGP PUBLIC KEY BLOCK-----") && this.trim().endsWith("-----END PGP PUBLIC KEY BLOCK-----")
 
 val String.isPGPPrivateKey
-    get() = this.startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----") && this.endsWith("-----END PGP PRIVATE KEY BLOCK-----")
+    get() = this.trim().startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----") && this.trim().endsWith("-----END PGP PRIVATE KEY BLOCK-----")
 
 val PGPPublicKey.name
     get() = if (userIDs.hasNext()) {
@@ -51,6 +50,6 @@ fun PGPKeyRing.extractPublicKeyRing(): PGPPublicKeyRing {
         while (it.hasNext()) {
             stream.write(it.next().encoded)
         }
-         PGPPublicKeyRing(stream.toByteArray(), JcaKeyFingerprintCalculator())
+        PGPPublicKeyRing(stream.toByteArray(), JcaKeyFingerprintCalculator())
     }
 }
