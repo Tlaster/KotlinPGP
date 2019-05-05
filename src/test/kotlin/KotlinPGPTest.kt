@@ -22,6 +22,7 @@ class KotlinPGPTest : FreeSpec({
     val keyName = "test"
     val keyEmail = "test@test.com"
     val keyPassword = "password"
+    KotlinPGP.header += "KolinPGP" to "test"
     "generate key pair" - {
         "normal generation" {
             val keypair = KotlinPGP.generateKeyPair(

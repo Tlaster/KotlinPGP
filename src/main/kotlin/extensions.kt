@@ -11,6 +11,9 @@ import java.io.ByteArrayOutputStream
 fun PGPKeyRing.exportToString(): String {
     return ByteArrayOutputStream().use {
         ArmoredOutputStream(it).use { armoredStreamPkr ->
+            KotlinPGP.header.forEach { head ->
+                armoredStreamPkr.setHeader(head.key, head.value)
+            }
             encode(armoredStreamPkr)
         }
         it.toString()

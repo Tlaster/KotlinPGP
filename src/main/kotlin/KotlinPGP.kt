@@ -29,6 +29,8 @@ object KotlinPGP {
         Security.insertProviderAt(BouncyCastleProvider(), 1)
     }
 
+    var header = mapOf<String, String>()
+
     private val bcKeyFingerprintCalculator = JcaKeyFingerprintCalculator()
 
     fun getEncryptedPackageInfo(encrypted: String): EncryptedPackageInfo {
@@ -280,6 +282,9 @@ object KotlinPGP {
         val enableEncrypt = encryptParameter.publicKey.any()
         val bytesOutput = ByteArrayOutputStream()
         val armoredOutputStream = ArmoredOutputStream(BufferedOutputStream(bytesOutput, 1 shl 16))
+        header.forEach { head ->
+            armoredOutputStream.setHeader(head.key, head.value)
+        }
         val messageBytes = encryptParameter.message.toByteArray()
         val signatureGenerator: PGPSignatureGenerator?
         var signatureHashAlgorithm = 0
@@ -369,7 +374,6 @@ object KotlinPGP {
                 signatureGenerator?.generate()?.encode(it)
             }
         }
-
         //Close everything we created
         armoredOutputStream.close()
         bytesOutput.close()
