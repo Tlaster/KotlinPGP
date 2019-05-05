@@ -29,7 +29,7 @@ object KotlinPGP {
         Security.insertProviderAt(BouncyCastleProvider(), 1)
     }
 
-    var header = mapOf<String, String>()
+    var header = mapOf<String, String?>()
 
     private val bcKeyFingerprintCalculator = JcaKeyFingerprintCalculator()
 
