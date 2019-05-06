@@ -1,14 +1,13 @@
 package moe.tlaster.kotlinpgp
 
 import moe.tlaster.kotlinpgp.data.*
+import moe.tlaster.kotlinpgp.utils.KeyPairGeneratorUtils
 import moe.tlaster.kotlinpgp.utils.OpenPGPUtils
 import moe.tlaster.kotlinpgp.utils.TextUtils
 import moe.tlaster.kotlinpgp.utils.UserIdUtils
 import org.bouncycastle.bcpg.*
 import org.bouncycastle.bcpg.sig.Features
 import org.bouncycastle.bcpg.sig.KeyFlags
-import org.bouncycastle.crypto.generators.RSAKeyPairGenerator
-import org.bouncycastle.crypto.params.RSAKeyGenerationParameters
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.*
@@ -17,11 +16,8 @@ import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-import java.math.BigInteger
-import java.security.SecureRandom
-import java.security.Security
 import java.util.*
-
+import java.security.*
 
 object KotlinPGP {
     init {
@@ -66,8 +62,8 @@ object KotlinPGP {
         }
     }
 
-    fun generateKeyPair(parameter: GenerateKeyPairParameter): PGPKeyPairData {
-        return generateKeyRingGenerator(parameter).let {
+    fun generateKeyPair(generateKeyData: GenerateKeyData): PGPKeyPairData {
+        return generateKeyRingGenerator(generateKeyData).let {
             PGPKeyPairData(
                 publicKey = it.generatePublicKeyRing().exportToString(),
                 secretKey = it.generateSecretKeyRing().exportToString()
@@ -75,26 +71,18 @@ object KotlinPGP {
         }
     }
 
-    private fun generateKeyRingGenerator(generateKeyPairParameter: GenerateKeyPairParameter): PGPKeyRingGenerator {
+    private fun generateKeyRingGenerator(generateKeyData: GenerateKeyData): PGPKeyRingGenerator {
         val id = UserIdUtils.createUserId(
             UserId(
-                name = generateKeyPairParameter.name,
-                email = generateKeyPairParameter.email
+                name = generateKeyData.name,
+                email = generateKeyData.email
             )
         )
-        val keyPairGenerator =
-            RSAKeyGenerationParameters(
-                BigInteger.valueOf(0x10001),
-                SecureRandom(),
-                generateKeyPairParameter.strength,
-                12
-            ).let {
-                RSAKeyPairGenerator().apply {
-                    init(it)
-                }
-            }
-        val masterKey = BcPGPKeyPair(PGPPublicKey.RSA_GENERAL, keyPairGenerator.generateKeyPair(), Date())
-        val keyPair = BcPGPKeyPair(PGPPublicKey.RSA_GENERAL, keyPairGenerator.generateKeyPair(), Date())
+
+        val date = Date()
+        val masterKey = KeyPairGeneratorUtils.createKey(generateKeyData.masterKey, date)
+        val keyPair = KeyPairGeneratorUtils.createKey(generateKeyData.subKey, date)
+
         val generator = PGPSignatureSubpacketGenerator().apply {
             setKeyFlags(false, KeyFlags.SIGN_DATA or KeyFlags.CERTIFY_OTHER)
             setPreferredSymmetricAlgorithms(
@@ -129,14 +117,14 @@ object KotlinPGP {
                 0x90
             )
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME)
-                .build(generateKeyPairParameter.password.toCharArray())
+                .build(generateKeyData.password.toCharArray())
         }
         return PGPKeyRingGenerator(
             PGPSignature.POSITIVE_CERTIFICATION, masterKey,
-            id, sha1Calc, generator.generate(), null, BcPGPContentSignerBuilder(
+            id, sha1Calc, generator.generate(), null, JcaPGPContentSignerBuilder(
                 masterKey.publicKey.algorithm,
-                HashAlgorithmTags.SHA1
-            ), encryptor
+                HashAlgorithmTags.SHA512
+            ).setProvider(BouncyCastleProvider.PROVIDER_NAME), encryptor
         ).apply {
             addSubKey(keyPair, pgpSignatureSubpacketGenerator.generate(), null)
         }

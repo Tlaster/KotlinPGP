@@ -10,10 +10,7 @@ import io.kotlintest.shouldBe
 import io.kotlintest.shouldThrowExactly
 import io.kotlintest.specs.FreeSpec
 import moe.tlaster.kotlinpgp.*
-import moe.tlaster.kotlinpgp.data.EncryptParameter
-import moe.tlaster.kotlinpgp.data.GenerateKeyPairParameter
-import moe.tlaster.kotlinpgp.data.PGPKeyPairData
-import moe.tlaster.kotlinpgp.data.VerifyStatus
+import moe.tlaster.kotlinpgp.data.*
 import moe.tlaster.kotlinpgp.utils.OpenPGPUtils
 import org.bouncycastle.openpgp.PGPException
 
@@ -24,36 +21,9 @@ class KotlinPGPTest : FreeSpec({
     val keyPassword = "password"
     KotlinPGP.header += "KolinPGP" to "test"
     "generate key pair" - {
-        "normal generation" {
+        "RSA key generation" {
             val keypair = KotlinPGP.generateKeyPair(
-                GenerateKeyPairParameter(
-                    name = keyName,
-                    email = keyEmail
-                )
-            )
-            testKeyPair(keypair)
-        }
-        "empty name" {
-            val keypair = KotlinPGP.generateKeyPair(
-                GenerateKeyPairParameter(
-                    name = "",
-                    email = keyEmail
-                )
-            )
-            testKeyPair(keypair)
-        }
-        "empty email" {
-            val keypair = KotlinPGP.generateKeyPair(
-                GenerateKeyPairParameter(
-                    name = keyName,
-                    email = ""
-                )
-            )
-            testKeyPair(keypair)
-        }
-        "with password" {
-            val keypair = KotlinPGP.generateKeyPair(
-                GenerateKeyPairParameter(
+                GenerateKeyData(
                     name = keyName,
                     email = keyEmail,
                     password = keyPassword
@@ -61,24 +31,90 @@ class KotlinPGPTest : FreeSpec({
             )
             testKeyPair(keypair)
         }
+        "DSA key generation" {
+            val keypair = KotlinPGP.generateKeyPair(
+                GenerateKeyData(
+                    name = keyName,
+                    email = keyEmail,
+                    password = keyPassword,
+                    masterKey = KeyData(
+                        algorithm = Algorithm.DSA
+                    ),
+                    subKey = KeyData(
+                        algorithm = Algorithm.ELGAMAL
+                    )
+                )
+            )
+            testKeyPair(keypair)
+        }
+        "ECDSA key generation" {
+            val keypair = KotlinPGP.generateKeyPair(
+                GenerateKeyData(
+                    name = keyName,
+                    email = keyEmail,
+                    password = keyPassword,
+                    masterKey = KeyData(
+                        algorithm = Algorithm.ECDSA,
+                        curve = Curve.NIST_P521
+                    ),
+                    subKey = KeyData(
+                        algorithm = Algorithm.ELGAMAL
+                    )
+                )
+            )
+            testKeyPair(keypair)
+        }
+//        "ECDH key generation" {
+//            val keypair = KotlinPGP.generateKeyPair(
+//                GenerateKeyData(
+//                    name = keyName,
+//                    email = keyEmail,
+//                    password = keyPassword,
+//                    masterKey = KeyData(
+//                        algorithm = Algorithm.ECDH,
+//                        curve = Curve.NIST_P521
+//                    ),
+//                    subKey = KeyData(
+//                        algorithm = Algorithm.ELGAMAL
+//                    )
+//                )
+//            )
+//            testKeyPair(keypair)
+//        }
+//        "EDDSA key generation" {
+//            val keypair = KotlinPGP.generateKeyPair(
+//                GenerateKeyData(
+//                    name = keyName,
+//                    email = keyEmail,
+//                    password = keyPassword,
+//                    masterKey = KeyData(
+//                        algorithm = Algorithm.EDDSA
+//                    ),
+//                    subKey = KeyData(
+//                        algorithm = Algorithm.ELGAMAL
+//                    )
+//                )
+//            )
+//            testKeyPair(keypair)
+//        }
     }
     "with same key pair" - {
         val keypair = KotlinPGP.generateKeyPair(
-            GenerateKeyPairParameter(
+            GenerateKeyData(
                 name = keyName,
                 email = keyEmail,
                 password = keyPassword
             )
         )
         val keypair2 = KotlinPGP.generateKeyPair(
-            GenerateKeyPairParameter(
+            GenerateKeyData(
                 name = keyName,
                 email = keyEmail,
                 password = keyPassword
             )
         )
         val keypair3 = KotlinPGP.generateKeyPair(
-            GenerateKeyPairParameter(
+            GenerateKeyData(
                 name = keyName,
                 email = keyEmail,
                 password = keyPassword
@@ -245,7 +281,7 @@ class KotlinPGPTest : FreeSpec({
                         verifyResult.keyID shouldBe publicKeyRings[0].publicKey.keyID
                     }
                     val newKeyPair = KotlinPGP.generateKeyPair(
-                        GenerateKeyPairParameter(
+                        GenerateKeyData(
                             name = keyName,
                             email = keyEmail,
                             password = keyPassword
