@@ -364,7 +364,7 @@ object KotlinPGP {
             encryptedDataGenerator.close()
         } else if (encryptParameter.enableSignature) {
             // cleartext signature
-            armoredOutputStream.beginClearText(signatureHashAlgorithm)
+            armoredOutputStream.beginClearText(HashAlgorithmTags.SHA512)
             armoredOutputStream.write(messageBytes)
             signatureGenerator?.update(messageBytes)
             armoredOutputStream.write(TextUtils.getLineSeparator())
