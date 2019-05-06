@@ -105,6 +105,7 @@ internal object KeyPairGeneratorUtils {
             Curve.NIST_P256 -> ECGenParameterSpec("P-256")
             Curve.NIST_P384 -> ECGenParameterSpec("P-384")
             Curve.NIST_P521 -> ECGenParameterSpec("P-521")
+            Curve.Secp256k1 -> ECGenParameterSpec("secp256k1")
         }
     }
 }

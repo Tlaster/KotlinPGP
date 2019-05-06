@@ -55,7 +55,7 @@ class KotlinPGPTest : FreeSpec({
                     password = keyPassword,
                     masterKey = KeyData(
                         algorithm = Algorithm.ECDSA,
-                        curve = Curve.NIST_P521
+                        curve = Curve.Secp256k1
                     ),
                     subKey = KeyData(
                         algorithm = Algorithm.ELGAMAL
