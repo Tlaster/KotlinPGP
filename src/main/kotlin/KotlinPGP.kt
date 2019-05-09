@@ -1,6 +1,7 @@
 package moe.tlaster.kotlinpgp
 
 import moe.tlaster.kotlinpgp.data.*
+import moe.tlaster.kotlinpgp.override.KtHiddenPublicKeyKeyEncryptionMethodGenerator
 import moe.tlaster.kotlinpgp.utils.KeyPairGeneratorUtils
 import moe.tlaster.kotlinpgp.utils.OpenPGPUtils
 import moe.tlaster.kotlinpgp.utils.TextUtils
@@ -18,6 +19,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.*
 import java.security.*
+import kotlin.collections.ArrayList
 
 object KotlinPGP {
     init {
@@ -27,7 +29,7 @@ object KotlinPGP {
 
     var header = mapOf<String, String?>()
 
-    private val bcKeyFingerprintCalculator = JcaKeyFingerprintCalculator()
+    private val jcaKeyFingerprintCalculator = JcaKeyFingerprintCalculator()
 
     fun getEncryptedPackageInfo(encrypted: String): EncryptedPackageInfo {
         ByteArrayInputStream(encrypted.toByteArray()).use {
@@ -39,10 +41,9 @@ object KotlinPGP {
                 )
             } else {
                 val encryptedDataKeyId = arrayListOf<Long>()
-                PGPObjectFactory(inputStream, bcKeyFingerprintCalculator)
+                PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
                     .let {
-                        val obj = it.nextObject()
-                        when (obj) {
+                        when (val obj = it.nextObject()) {
                             is PGPEncryptedDataList -> obj
                             else -> it.nextObject() as PGPEncryptedDataList
                         }
@@ -133,14 +134,14 @@ object KotlinPGP {
 
     fun getPublicKeyRingFromString(publicKey: String): PGPPublicKeyRing {
         return ArmoredInputStream(ByteArrayInputStream(publicKey.toByteArray())).use {
-            val pgpObjectFactory = PGPObjectFactory(it, bcKeyFingerprintCalculator)
+            val pgpObjectFactory = PGPObjectFactory(it, jcaKeyFingerprintCalculator)
             pgpObjectFactory.nextObject() as PGPPublicKeyRing
         }
     }
 
     fun getSecretKeyRingFromString(privateKey: String, password: String): PGPSecretKeyRing {
         val secretKeyRing = ArmoredInputStream(ByteArrayInputStream(privateKey.toByteArray())).use {
-            PGPObjectFactory(it, bcKeyFingerprintCalculator).nextObject() as PGPSecretKeyRing
+            PGPObjectFactory(it, jcaKeyFingerprintCalculator).nextObject() as PGPSecretKeyRing
         }
         // Test if we got the right password
         val decryptor = BcPBESecretKeyDecryptorBuilder(BcPGPDigestCalculatorProvider()).build(password.toCharArray())
@@ -148,6 +149,103 @@ object KotlinPGP {
         return secretKeyRing
     }
 
+    fun tryDecrypt(privateKeyData: List<PrivateKeyData>, encrypted: String): DecryptResult? {
+        ByteArrayInputStream(encrypted.toByteArray()).use {
+            PGPUtil.getDecoderStream(it)
+        }.use { inputStream ->
+
+            val encryptedDataKeyId = arrayListOf<Long>()
+            PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
+                .let {
+                    when (val obj = it.nextObject()) {
+                        is PGPEncryptedDataList -> obj
+                        else -> it.nextObject() as PGPEncryptedDataList
+                    }
+                }.let {
+                    it.encryptedDataObjects.iterator()
+                }.forEach { data ->
+                    if (data is PGPPublicKeyEncryptedData) {
+                        encryptedDataKeyId.add(data.keyID)
+                        privateKeyData.forEach { privateKeyData ->
+                            val privKey = OpenPGPUtils.getMasterPrivateKey(getSecretKeyRingFromString(privateKeyData.key, privateKeyData.password), privateKeyData.password.toCharArray())
+                            if (data.keyID == 0L) {
+                                kotlin.runCatching {
+                                    data.getDataStream(BcPublicKeyDataDecryptorFactory(privKey)).use {
+                                        PGPObjectFactory(it, jcaKeyFingerprintCalculator)
+                                    }.let {
+                                        return getDecryptResultFromFactory(it, encryptedDataKeyId)
+                                    }
+                                }.onFailure {
+
+                                }
+                            } else if (data.keyID == privKey?.keyID) {
+                                data.getDataStream(BcPublicKeyDataDecryptorFactory(privKey)).use {
+                                    PGPObjectFactory(it, jcaKeyFingerprintCalculator)
+                                }.let {
+                                    return getDecryptResultFromFactory(it, encryptedDataKeyId)
+                                }
+                            }
+                        }
+                    }
+                }
+//                    .let {
+//                        OpenPGPUtils.getMasterPrivateKey(privateKeyRing)
+//                        var privKey: PGPPrivateKey? = null
+//                        var encryptedData: PGPPublicKeyEncryptedData? = null
+//                        while (it.hasNext()) {
+//                            val data = it.next() as PGPPublicKeyEncryptedData
+//                            encryptedDataKeyId.add(data.keyID)
+//                            if (privKey == null) {
+//                                encryptedData = data
+//                                privKey = OpenPGPUtils.getMasterPrivateKey(privateKeyRing, encryptedData.keyID, password.toCharArray())
+//                            }
+//                        }
+//                        encryptedData?.getDataStream(BcPublicKeyDataDecryptorFactory(privKey))
+//                    }?.use { clear ->
+//                        PGPObjectFactory(clear, jcaKeyFingerprintCalculator)
+//                    }
+        }
+        return null
+    }
+
+    private fun getDecryptResultFromFactory(
+        factory: PGPObjectFactory,
+        encryptedDataKeyId: ArrayList<Long>
+    ): DecryptResult {
+        var factory1 = factory
+        var onePassSignatureList: PGPOnePassSignatureList? = null
+        var signatureList: PGPSignatureList? = null
+        var result: String? = null
+        var time: Date? = null
+        var dataObj = factory1.nextObject()
+        while (dataObj != null) {
+            if (dataObj is PGPCompressedData) {
+                factory1 = JcaSkipMarkerPGPObjectFactory(dataObj.dataStream)
+            }
+            if (dataObj is PGPOnePassSignatureList) {
+                onePassSignatureList = dataObj
+            }
+            if (dataObj is PGPSignatureList) {
+                signatureList = dataObj
+            }
+            if (dataObj is PGPLiteralData) {
+                time = dataObj.modificationTime
+                result = OpenPGPUtils.extractDataFromPgpLiteralData(dataObj)
+            }
+            dataObj = factory1.nextObject()
+        }
+
+        return DecryptResult(
+            result = result ?: "",
+            time = time,
+            hasSignature = onePassSignatureList != null || signatureList != null,
+            signatureData = SignatureData(
+                onePassSignatureList, signatureList, result
+                    ?: ""
+            ),
+            includedKeys = encryptedDataKeyId
+        )
+    }
 
     fun decrypt(privateKey: String, password: String, encrypted: String): DecryptResult {
         ByteArrayInputStream(encrypted.toByteArray()).use {
@@ -164,10 +262,9 @@ object KotlinPGP {
     private fun encryptedDecryptResult(inputStream: InputStream?, privateKey: String, password: String): DecryptResult {
         val privateKeyRing = getSecretKeyRingFromString(privateKey, password)
         val encryptedDataKeyId = arrayListOf<Long>()
-        var factory = PGPObjectFactory(inputStream, bcKeyFingerprintCalculator)
+        var factory = PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
             .let {
-                val obj = it.nextObject()
-                when (obj) {
+                when (val obj = it.nextObject()) {
                     is PGPEncryptedDataList -> obj
                     else -> it.nextObject() as PGPEncryptedDataList
                 }
@@ -186,42 +283,43 @@ object KotlinPGP {
                 }
                 encryptedData?.getDataStream(BcPublicKeyDataDecryptorFactory(privKey))
             }?.use { clear ->
-                PGPObjectFactory(clear, bcKeyFingerprintCalculator)
+                PGPObjectFactory(clear, jcaKeyFingerprintCalculator)
             }
-        var onePassSignatureList: PGPOnePassSignatureList? = null
-        var signatureList: PGPSignatureList? = null
-        var result: String? = null
-        var time: Date? = null
-        if (factory != null) {
-            var dataObj = factory.nextObject()
-            while (dataObj != null) {
-                if (dataObj is PGPCompressedData) {
-                    factory = JcaSkipMarkerPGPObjectFactory(dataObj.dataStream)
-                }
-                if (dataObj is PGPOnePassSignatureList) {
-                    onePassSignatureList = dataObj
-                }
-                if (dataObj is PGPSignatureList) {
-                    signatureList = dataObj
-                }
-                if (dataObj is PGPLiteralData) {
-                    time = dataObj.modificationTime
-                    result = OpenPGPUtils.extractDataFromPgpLiteralData(dataObj)
-                }
-                dataObj = factory?.nextObject()
-            }
-        }
-
-        return DecryptResult(
-            result = result ?: "",
-            time = time,
-            hasSignature = onePassSignatureList != null || signatureList != null,
-            signatureData = SignatureData(
-                onePassSignatureList, signatureList, result
-                    ?: ""
-            ),
-            includedKeys = encryptedDataKeyId
-        )
+        return getDecryptResultFromFactory(factory!!, encryptedDataKeyId)
+//        var onePassSignatureList: PGPOnePassSignatureList? = null
+//        var signatureList: PGPSignatureList? = null
+//        var result: String? = null
+//        var time: Date? = null
+//        if (factory != null) {
+//            var dataObj = factory.nextObject()
+//            while (dataObj != null) {
+//                if (dataObj is PGPCompressedData) {
+//                    factory = JcaSkipMarkerPGPObjectFactory(dataObj.dataStream)
+//                }
+//                if (dataObj is PGPOnePassSignatureList) {
+//                    onePassSignatureList = dataObj
+//                }
+//                if (dataObj is PGPSignatureList) {
+//                    signatureList = dataObj
+//                }
+//                if (dataObj is PGPLiteralData) {
+//                    time = dataObj.modificationTime
+//                    result = OpenPGPUtils.extractDataFromPgpLiteralData(dataObj)
+//                }
+//                dataObj = factory?.nextObject()
+//            }
+//        }
+//
+//        return DecryptResult(
+//            result = result ?: "",
+//            time = time,
+//            hasSignature = onePassSignatureList != null || signatureList != null,
+//            signatureData = SignatureData(
+//                onePassSignatureList, signatureList, result
+//                    ?: ""
+//            ),
+//            includedKeys = encryptedDataKeyId
+//        )
     }
 
     private fun clearSignDecryptResult(inputStream: ArmoredInputStream): DecryptResult {
@@ -310,8 +408,14 @@ object KotlinPGP {
             }.let {
                 PGPEncryptedDataGenerator(it)
             }.also {
-                encryptParameter.publicKey.map { OpenPGPUtils.getSubKeyPublicKey(getPublicKeyRingFromString(it)) }.forEach { key ->
-                    it.addMethod(BcPublicKeyKeyEncryptionMethodGenerator(key))
+                encryptParameter.publicKey.map {
+                    OpenPGPUtils.getSubKeyPublicKey(getPublicKeyRingFromString(it.key)) to it
+                }.forEach { data ->
+                    if (data.second.isHidden) {
+                        it.addMethod(KtHiddenPublicKeyKeyEncryptionMethodGenerator(data.first))
+                    } else {
+                        it.addMethod(BcPublicKeyKeyEncryptionMethodGenerator(data.first))
+                    }
                 }
             }
             val encryptedOutput = encryptedDataGenerator.open(armoredOutputStream, ByteArray(1 shl 16))

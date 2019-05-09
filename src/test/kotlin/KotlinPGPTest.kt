@@ -153,9 +153,9 @@ class KotlinPGPTest : FreeSpec({
         }
         "encrypt" - {
             val contentToEncrypt = "Hello world!"
-            val publicKeys = listOf(keypair.publicKey, keypair2.publicKey, keypair3.publicKey)
+            val publicKeys = listOf(keypair.publicKey, keypair2.publicKey, keypair3.publicKey).map { PublicKeyData(it, false) }
             val publicKeyRings = publicKeys.map {
-                KotlinPGP.getPublicKeyRingFromString(it)
+                KotlinPGP.getPublicKeyRingFromString(it.key)
             }
             "encrypt data without signing" {
                 val encryptResult = KotlinPGP.encrypt(EncryptParameter(
@@ -263,19 +263,19 @@ class KotlinPGPTest : FreeSpec({
                 "verify" - {
                     "verify not signed data" {
                         val signatureData = decryptResult.signatureData
-                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys)
+                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys.map { it.key })
                         verifyResult.verifyStatus shouldBe VerifyStatus.NO_SIGNATURE
                     }
                     "verify signed data" {
                         val signatureData = signedDecryptResult.signatureData
-                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys)
+                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys.map { it.key })
                         verifyResult.shouldNotBeNull()
                         verifyResult.verifyStatus shouldBe VerifyStatus.SIGNATURE_OK
                         verifyResult.keyID shouldBe publicKeyRings[0].publicKey.keyID
                     }
                     "verify clear signed data" {
                         val signatureData = clearSignedDecryptResult.signatureData
-                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys)
+                        val verifyResult = KotlinPGP.verify(signatureData, publicKeys.map { it.key })
                         verifyResult.shouldNotBeNull()
                         verifyResult.verifyStatus shouldBe VerifyStatus.SIGNATURE_OK
                         verifyResult.keyID shouldBe publicKeyRings[0].publicKey.keyID

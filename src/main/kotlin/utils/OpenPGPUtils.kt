@@ -25,6 +25,20 @@ internal object OpenPGPUtils {
         return pgpSecKey?.extractPrivateKey(decryptor)
     }
 
+
+    fun getMasterPrivateKey(keyRing: PGPSecretKeyRing, pass: CharArray): PGPPrivateKey? {
+        val iterator = keyRing.secretKeys
+        while (iterator.hasNext()) {
+            val key = iterator.next() as PGPSecretKey
+            if (!key.isMasterKey) {
+                val decryptor = BcPBESecretKeyDecryptorBuilder(BcPGPDigestCalculatorProvider()).build(pass)
+                return key.extractPrivateKey(decryptor)
+            }
+        }
+        return null
+    }
+
+
     fun extractDataFromPgpLiteralData(dataObj: PGPLiteralData): String {
         dataObj.inputStream.use { inputStream ->
             ByteArrayOutputStream().use {

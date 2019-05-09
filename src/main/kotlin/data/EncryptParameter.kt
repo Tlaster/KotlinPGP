@@ -4,9 +4,19 @@ import org.bouncycastle.bcpg.CompressionAlgorithmTags
 
 data class EncryptParameter(
     val message: String,
-    val publicKey: List<String> = emptyList(),
+    val publicKey: List<PublicKeyData> = emptyList(),
     val enableSignature: Boolean = false,
     val privateKey: String = "",
     val password: String = "",
     val compressionAlgorithm: Int = CompressionAlgorithmTags.ZIP
+)
+
+data class PublicKeyData(
+    val key: String,
+    val isHidden: Boolean = false
+)
+
+data class PrivateKeyData(
+    val key: String,
+    val password: String
 )
