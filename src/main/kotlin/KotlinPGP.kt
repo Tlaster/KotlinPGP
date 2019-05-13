@@ -262,7 +262,7 @@ object KotlinPGP {
     private fun encryptedDecryptResult(inputStream: InputStream?, privateKey: String, password: String): DecryptResult {
         val privateKeyRing = getSecretKeyRingFromString(privateKey, password)
         val encryptedDataKeyId = arrayListOf<Long>()
-        var factory = PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
+        val factory = PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
             .let {
                 when (val obj = it.nextObject()) {
                     is PGPEncryptedDataList -> obj
@@ -409,7 +409,7 @@ object KotlinPGP {
                 PGPEncryptedDataGenerator(it)
             }.also {
                 encryptParameter.publicKey.map {
-                    OpenPGPUtils.getSubKeyPublicKey(getPublicKeyRingFromString(it.key)) to it
+                    OpenPGPUtils.getEncryptionKey(getPublicKeyRingFromString(it.key)) to it
                 }.forEach { data ->
                     if (data.second.isHidden) {
                         it.addMethod(KtHiddenPublicKeyKeyEncryptionMethodGenerator(data.first))
@@ -497,7 +497,7 @@ object KotlinPGP {
         signatureData: SignatureData,
         signatureList: PGPSignatureList
     ): VerifyResult {
-        val pubkeys = publicKey.map { Pair(OpenPGPUtils.getMasterPublicKeyFromKeyRing(getPublicKeyRingFromString(it)), it) }
+        val pubkeys = publicKey.map { OpenPGPUtils.getMasterPublicKeyFromKeyRing(getPublicKeyRingFromString(it)) to it }
         val knownKeySignature = signatureList.filter {
             pubkeys.any { key ->
                 key.first != null && key.first!!.keyID == it.keyID
@@ -542,7 +542,7 @@ object KotlinPGP {
         signatureData: SignatureData,
         signatureList: PGPSignatureList
     ): VerifyResult {
-        val pubkeys = publicKey.map { Pair(OpenPGPUtils.getMasterPublicKeyFromKeyRing(getPublicKeyRingFromString(it)), it) }
+        val pubkeys = publicKey.map { OpenPGPUtils.getMasterPublicKeyFromKeyRing(getPublicKeyRingFromString(it)) to it }
         val knownKeySignature = onePassSignatureList.filter {
             pubkeys.any { key ->
                 key.first != null && key.first!!.keyID == it.keyID

@@ -7,16 +7,17 @@ import java.io.ByteArrayOutputStream
 
 internal object OpenPGPUtils {
 
-    fun getSubKeyPublicKey(publicKeyRing: PGPPublicKeyRing): PGPPublicKey? {
+    fun getEncryptionKey(publicKeyRing: PGPPublicKeyRing): PGPPublicKey {
         val iterator = publicKeyRing.publicKeys
         while (iterator.hasNext()) {
             val key = iterator.next() as PGPPublicKey
-            //TODO: May be master key will be used as encrypt key
-            if (!key.isMasterKey && key.isEncryptionKey) {
+            if (key.isEncryptionKey) {
                 return key
             }
         }
-        return null
+        throw IllegalArgumentException(
+            "Can't find encryption key in key ring."
+        )
     }
 
     fun getMasterPrivateKey(keyRing: PGPSecretKeyRing, keyID: Long, pass: CharArray): PGPPrivateKey? {
@@ -57,7 +58,6 @@ internal object OpenPGPUtils {
         val iterator = publicKeyRing.publicKeys
         while (iterator.hasNext()) {
             val key = iterator.next() as PGPPublicKey
-            //TODO: May be master key will be used as encrypt key
             if (key.isMasterKey) {
                 return key
             }
@@ -68,8 +68,7 @@ internal object OpenPGPUtils {
     fun getSignPrivateKey(securet: PGPSecretKeyRing): PGPSecretKey {
         val keyRingIter = securet.secretKeys
         while (keyRingIter.hasNext()) {
-            val next = keyRingIter.next()
-            when (next) {
+            when (val next = keyRingIter.next()) {
                 is PGPSecretKeyRing -> {
                     val keyIter = next.secretKeys
                     while (keyIter.hasNext()) {

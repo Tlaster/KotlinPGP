@@ -217,7 +217,7 @@ class KotlinPGPTest : FreeSpec({
                     decryptResult.includedKeys.size shouldBe 3
                     decryptResult.includedKeys.forAll { id ->
                         publicKeyRings.any { keyRing ->
-                            OpenPGPUtils.getSubKeyPublicKey(keyRing)?.keyID == id
+                            OpenPGPUtils.getEncryptionKey(keyRing)?.keyID == id
                         }
                     }
                     val signatureData = decryptResult.signatureData
@@ -232,7 +232,7 @@ class KotlinPGPTest : FreeSpec({
                     decryptResult.includedKeys.size shouldBe 3
                     decryptResult.includedKeys.forAll { id ->
                         publicKeyRings.any { keyRing ->
-                            OpenPGPUtils.getSubKeyPublicKey(keyRing)?.keyID == id
+                            OpenPGPUtils.getEncryptionKey(keyRing)?.keyID == id
                         }
                     }
                     val signatureData = decryptResult.signatureData
@@ -249,7 +249,7 @@ class KotlinPGPTest : FreeSpec({
                     decryptResult.includedKeys.size shouldBe 0
                     decryptResult.includedKeys.forAll { id ->
                         publicKeyRings.any { keyRing ->
-                            OpenPGPUtils.getSubKeyPublicKey(keyRing)?.keyID == id
+                            OpenPGPUtils.getEncryptionKey(keyRing)?.keyID == id
                         }
                     }
                     val signatureData = decryptResult.signatureData
