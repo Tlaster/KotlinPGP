@@ -7,31 +7,45 @@ import java.io.ByteArrayOutputStream
 
 internal object OpenPGPUtils {
 
-    fun getEncryptionKey(publicKeyRing: PGPPublicKeyRing): PGPPublicKey {
-        val iterator = publicKeyRing.publicKeys
-        while (iterator.hasNext()) {
-            val key = iterator.next() as PGPPublicKey
-            if (key.isEncryptionKey) {
+    fun getEncryptionPublicKey(publicKeyRing: PGPPublicKeyRing): PGPPublicKey {
+        var masterEncryptionKey: PGPPublicKey? = null
+        publicKeyRing.publicKeys.forEach { key ->
+            val isMaster = key.isMasterKey
+            val isEncryption = key.isEncryptionKey
+            if (isMaster && isEncryption) {
+                masterEncryptionKey = key
+            } else if (!isMaster && isEncryption) {
                 return key
             }
+        }
+        if (masterEncryptionKey != null) {
+            return masterEncryptionKey!!
         }
         throw IllegalArgumentException(
             "Can't find encryption key in key ring."
         )
     }
 
-    fun getMasterPrivateKey(keyRing: PGPSecretKeyRing, keyID: Long, pass: CharArray): PGPPrivateKey? {
+    fun getEncryptionPrivateKey(keyRing: PGPSecretKeyRing, keyID: Long, pass: CharArray): PGPPrivateKey? {
         val pgpSecKey = keyRing.getSecretKey(keyID)
         val decryptor = BcPBESecretKeyDecryptorBuilder(BcPGPDigestCalculatorProvider()).build(pass)
         return pgpSecKey?.extractPrivateKey(decryptor)
     }
 
+    fun getAllEncryptionPrivateKeys(keyRing: PGPSecretKeyRing, pass: CharArray): List<PGPPrivateKey> {
+        val keys = arrayListOf<PGPPrivateKey>()
+        keyRing.secretKeys.forEach { key ->
+            if (key.publicKey.isEncryptionKey) {
+                val decryptor = BcPBESecretKeyDecryptorBuilder(BcPGPDigestCalculatorProvider()).build(pass)
+                keys.add(key.extractPrivateKey(decryptor))
+            }
+        }
+        return keys
+    }
 
-    fun getMasterPrivateKey(keyRing: PGPSecretKeyRing, pass: CharArray): PGPPrivateKey? {
-        val iterator = keyRing.secretKeys
-        while (iterator.hasNext()) {
-            val key = iterator.next() as PGPSecretKey
-            if (!key.isMasterKey) {
+    fun getEncryptionPrivateKey(keyRing: PGPSecretKeyRing, pass: CharArray): PGPPrivateKey? {
+        keyRing.secretKeys.forEach { key ->
+            if (key.publicKey.isEncryptionKey) {
                 val decryptor = BcPBESecretKeyDecryptorBuilder(BcPGPDigestCalculatorProvider()).build(pass)
                 return key.extractPrivateKey(decryptor)
             }
@@ -55,9 +69,7 @@ internal object OpenPGPUtils {
     }
 
     fun getMasterPublicKeyFromKeyRing(publicKeyRing: PGPPublicKeyRing): PGPPublicKey? {
-        val iterator = publicKeyRing.publicKeys
-        while (iterator.hasNext()) {
-            val key = iterator.next() as PGPPublicKey
+        publicKeyRing.publicKeys.forEach { key ->
             if (key.isMasterKey) {
                 return key
             }
@@ -66,11 +78,10 @@ internal object OpenPGPUtils {
     }
 
     fun getSignPrivateKey(securet: PGPSecretKeyRing): PGPSecretKey {
-        val keyRingIter = securet.secretKeys
-        while (keyRingIter.hasNext()) {
-            when (val next = keyRingIter.next()) {
+        securet.secretKeys.forEach {
+            when (it) {
                 is PGPSecretKeyRing -> {
-                    val keyIter = next.secretKeys
+                    val keyIter = it.secretKeys
                     while (keyIter.hasNext()) {
                         val key = keyIter.next() as PGPSecretKey
 
@@ -81,8 +92,8 @@ internal object OpenPGPUtils {
                 }
                 is PGPSecretKey -> {
                     // TODO: Do we need to check if is master key?
-                    if (next.isSigningKey) {
-                        return next
+                    if (it.isSigningKey) {
+                        return it
                     }
                 }
             }

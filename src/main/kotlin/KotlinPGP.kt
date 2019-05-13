@@ -153,8 +153,14 @@ object KotlinPGP {
         ByteArrayInputStream(encrypted.toByteArray()).use {
             PGPUtil.getDecoderStream(it)
         }.use { inputStream ->
-
-            val encryptedDataKeyId = arrayListOf<Long>()
+            val allKeys = privateKeyData.flatMap {
+                OpenPGPUtils.getAllEncryptionPrivateKeys(
+                    getSecretKeyRingFromString(
+                        it.key,
+                        it.password
+                    ), it.password.toCharArray()
+                )
+            }
             PGPObjectFactory(inputStream, jcaKeyFingerprintCalculator)
                 .let {
                     when (val obj = it.nextObject()) {
@@ -165,45 +171,28 @@ object KotlinPGP {
                     it.encryptedDataObjects.iterator()
                 }.forEach { data ->
                     if (data is PGPPublicKeyEncryptedData) {
-                        encryptedDataKeyId.add(data.keyID)
-                        privateKeyData.forEach { privateKeyData ->
-                            val privKey = OpenPGPUtils.getMasterPrivateKey(getSecretKeyRingFromString(privateKeyData.key, privateKeyData.password), privateKeyData.password.toCharArray())
-                            if (data.keyID == 0L) {
+                        if (data.keyID == 0L) {
+                            for (key in allKeys) {
                                 kotlin.runCatching {
-                                    data.getDataStream(BcPublicKeyDataDecryptorFactory(privKey)).use {
+                                    data.getDataStream(BcPublicKeyDataDecryptorFactory(key)).use {
                                         PGPObjectFactory(it, jcaKeyFingerprintCalculator)
                                     }.let {
-                                        return getDecryptResultFromFactory(it, encryptedDataKeyId)
+                                        return getDecryptResultFromFactory(it, arrayListOf())
                                     }
                                 }.onFailure {
 
                                 }
-                            } else if (data.keyID == privKey?.keyID) {
-                                data.getDataStream(BcPublicKeyDataDecryptorFactory(privKey)).use {
-                                    PGPObjectFactory(it, jcaKeyFingerprintCalculator)
-                                }.let {
-                                    return getDecryptResultFromFactory(it, encryptedDataKeyId)
-                                }
+                            }
+                        } else if (allKeys.any { key -> key.keyID == data.keyID }) {
+                            val key = allKeys.first { key -> key.keyID == data.keyID }
+                            data.getDataStream(BcPublicKeyDataDecryptorFactory(key)).use {
+                                PGPObjectFactory(it, jcaKeyFingerprintCalculator)
+                            }.let {
+                                return getDecryptResultFromFactory(it, arrayListOf())
                             }
                         }
                     }
                 }
-//                    .let {
-//                        OpenPGPUtils.getMasterPrivateKey(privateKeyRing)
-//                        var privKey: PGPPrivateKey? = null
-//                        var encryptedData: PGPPublicKeyEncryptedData? = null
-//                        while (it.hasNext()) {
-//                            val data = it.next() as PGPPublicKeyEncryptedData
-//                            encryptedDataKeyId.add(data.keyID)
-//                            if (privKey == null) {
-//                                encryptedData = data
-//                                privKey = OpenPGPUtils.getMasterPrivateKey(privateKeyRing, encryptedData.keyID, password.toCharArray())
-//                            }
-//                        }
-//                        encryptedData?.getDataStream(BcPublicKeyDataDecryptorFactory(privKey))
-//                    }?.use { clear ->
-//                        PGPObjectFactory(clear, jcaKeyFingerprintCalculator)
-//                    }
         }
         return null
     }
@@ -278,7 +267,11 @@ object KotlinPGP {
                     encryptedDataKeyId.add(data.keyID)
                     if (privKey == null) {
                         encryptedData = data
-                        privKey = OpenPGPUtils.getMasterPrivateKey(privateKeyRing, encryptedData.keyID, password.toCharArray())
+                        privKey = OpenPGPUtils.getEncryptionPrivateKey(
+                            privateKeyRing,
+                            encryptedData.keyID,
+                            password.toCharArray()
+                        )
                     }
                 }
                 encryptedData?.getDataStream(BcPublicKeyDataDecryptorFactory(privKey))
@@ -409,7 +402,7 @@ object KotlinPGP {
                 PGPEncryptedDataGenerator(it)
             }.also {
                 encryptParameter.publicKey.map {
-                    OpenPGPUtils.getEncryptionKey(getPublicKeyRingFromString(it.key)) to it
+                    OpenPGPUtils.getEncryptionPublicKey(getPublicKeyRingFromString(it.key)) to it
                 }.forEach { data ->
                     if (data.second.isHidden) {
                         it.addMethod(KtHiddenPublicKeyKeyEncryptionMethodGenerator(data.first))
@@ -472,7 +465,6 @@ object KotlinPGP {
 
         return bytesOutput.toString()
     }
-
 
 
     fun verify(signatureData: SignatureData, publicKey: List<String>): VerifyResult {
