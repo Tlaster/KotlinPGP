@@ -365,6 +365,7 @@ object KotlinPGP {
             armoredOutputStream.setHeader(head.key, head.value)
         }
         val messageBytes = encryptParameter.message.toByteArray()
+        val messageName = encryptParameter.messageOriginatingFileName.ifEmpty { PGPLiteralData.CONSOLE }
         val signatureGenerator: PGPSignatureGenerator?
         var signatureHashAlgorithm = 0
         if (encryptParameter.enableSignature) {
@@ -428,7 +429,7 @@ object KotlinPGP {
             val literalDataGeneratorOutput = literalDataGenerator.open(
                 bcpgOutputStream,
                 PGPLiteralData.UTF8,
-                PGPLiteralData.CONSOLE,
+                messageName,
                 Date(),
                 ByteArray(1 shl 16)
             )

@@ -190,6 +190,16 @@ class KotlinPGPTest : FreeSpec({
                     it.isPGPMessage
                 }
             }
+            "encrypt data with originating filename" {
+                val encryptResult = KotlinPGP.encrypt(EncryptParameter(
+                    message = contentToEncrypt,
+                    publicKey = publicKeys,
+                    messageOriginatingFileName = "test"
+                ))
+                encryptResult should {
+                    it.isPGPMessage
+                }
+            }
             "decrypt" - {
                 val encryptedData = KotlinPGP.encrypt(EncryptParameter(
                     message = contentToEncrypt,

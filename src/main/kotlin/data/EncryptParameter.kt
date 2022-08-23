@@ -8,7 +8,8 @@ data class EncryptParameter(
     val enableSignature: Boolean = false,
     val privateKey: String = "",
     val password: String = "",
-    val compressionAlgorithm: Int = CompressionAlgorithmTags.ZIP
+    val compressionAlgorithm: Int = CompressionAlgorithmTags.ZIP,
+    val messageOriginatingFileName: String = ""
 )
 
 data class PublicKeyData(
